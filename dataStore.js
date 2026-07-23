@@ -22,6 +22,7 @@ const DATA_FILE_KEYS = new Map([
     ["team.json", "team"],
     ["task_notifications.json", "task_notifications"],
     ["absences.json", "absences"],
+    ["absence_processed_message_ids.json", "absence_processed_message_ids"],
     ["person_records.json", "person_records"],
     ["forum_posts.json", "forum_posts"],
     ["archive_entries.json", "archive_entries"],

@@ -1281,7 +1281,9 @@ function getTeamMemberById(userId) {
 // irgendjemand sie als "Abgelaufen" zu sehen bekam - das war vermutlich der
 // Grund, warum manche Abmeldungen "einfach verschwanden". Fix: erst nach
 // einer Karenzzeit löschen, in der Zwischenzeit bleiben sie normal sichtbar.
-const ABSENCE_CLEANUP_GRACE_MS = 60 * 24 * 60 * 60 * 1000;
+// 7 Tage auf Wunsch, damit abgelaufene Abmeldungen eine Weile sichtbar
+// bleiben, aber nicht dauerhaft anwachsen.
+const ABSENCE_CLEANUP_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isAbsenceExpiredPastGrace(absence, now) {
     const migrated = migrateAbsence(absence);

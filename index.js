@@ -333,6 +333,51 @@ function writeAbsences(absences) {
   writeJsonFile(absencesFile, Array.isArray(absences) ? absences : []);
 }
 
+// Getrennte "Erledigt"-Merkliste fuer den Abmeldungs-Backfill (siehe
+// backfillAbsenceChannel weiter unten): Der Backfill darf eine Nachricht NIE
+// wieder aufgreifen, nur weil ihr zugehoeriger Eintrag in absences.json
+// zwischenzeitlich geloescht wurde (manuell im Dashboard oder durch die
+// automatische 7-Tage-Bereinigung) - sonst wuerde jede geloeschte, aber noch
+// junge Abmeldung beim naechsten Bot-Neustart einfach wieder auftauchen.
+// Diese Liste wird beim Loeschen NICHT angefasst, nur beim Verarbeiten
+// ergaenzt, und regelmaessig um Eintraege bereinigt, die laenger als der
+// Backfill jemals zurueckblicken kann.
+const absenceProcessedIdsFile = path.join(__dirname, "absence_processed_message_ids.json");
+const PROCESSED_ABSENCE_ID_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+function readProcessedAbsenceMessageIds() {
+  const data = readJsonFile(absenceProcessedIdsFile, {});
+  return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+}
+
+function markAbsenceMessageProcessed(messageId) {
+  const id = String(messageId || "");
+  if (!id) return;
+
+  const processed = readProcessedAbsenceMessageIds();
+  processed[id] = Date.now();
+  writeJsonFile(absenceProcessedIdsFile, processed);
+}
+
+function pruneProcessedAbsenceMessageIds() {
+  const processed = readProcessedAbsenceMessageIds();
+  const cutoff = Date.now() - PROCESSED_ABSENCE_ID_RETENTION_MS;
+  let changed = false;
+  const pruned = {};
+
+  for (const [id, processedAt] of Object.entries(processed)) {
+    if (Number(processedAt) > cutoff) {
+      pruned[id] = processedAt;
+    } else {
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    writeJsonFile(absenceProcessedIdsFile, pruned);
+  }
+}
+
 function isKnownTeamMemberForAbsence(userId) {
   const id = String(userId || "");
   if (!id) return false;
@@ -389,10 +434,16 @@ async function sendAbsenceFormatHelp(message, problem = "") {
 // absences.json auf. Vorher wurde sofort bei Ablauf gelöscht, wodurch der
 // "Abgelaufen"-Status und die Kalender-Historie im Dashboard (public/
 // absences.js) praktisch nie sichtbar wurden, bevor die Abmeldung schon
-// wieder verschwunden war.
-const ABSENCE_CLEANUP_GRACE_MS = 60 * 24 * 60 * 60 * 1000;
+// wieder verschwunden war. 7 Tage auf Wunsch, damit abgelaufene Abmeldungen
+// eine Weile sichtbar bleiben, aber nicht dauerhaft anwachsen.
+const ABSENCE_CLEANUP_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function cleanupExpiredAbsences() {
+  // Laeuft ohnehin alle 10 Minuten - guter, regelmaessiger Zeitpunkt, um die
+  // Backfill-Merkliste (siehe markAbsenceMessageProcessed) von laengst irrelevanten
+  // Eintraegen zu befreien, statt das nur beim (seltenen) Bot-Neustart zu tun.
+  pruneProcessedAbsenceMessageIds();
+
   const absences = readAbsencesRaw();
   const now = Date.now();
   const removedIds = [];
@@ -450,9 +501,20 @@ async function backfillAbsenceChannel(guild) {
       return;
     }
 
+    // Wichtig: Nicht nur aktuell in absences.json vorhandene IDs zählen, sondern auch die
+    // dauerhafte Merkliste - sonst würde eine manuell gelöschte oder automatisch (siehe
+    // ABSENCE_CLEANUP_GRACE_MS) bereinigte, aber noch junge Abmeldung beim nächsten
+    // Neustart aus dem Kanalverlauf einfach wieder aufgegriffen.
     const existingIds = new Set(
       readAbsencesRaw().map(absence => String(absence.messageId || absence.id || ""))
     );
+    const processedIds = readProcessedAbsenceMessageIds();
+
+    for (const id of Object.keys(processedIds)) {
+      existingIds.add(id);
+    }
+
+    pruneProcessedAbsenceMessageIds();
 
     const cutoff = Date.now() - ABSENCE_BACKFILL_MAX_AGE_MS;
     const withinWindow = [];
@@ -567,6 +629,12 @@ async function handleAbsenceMessage(message) {
 
   absences.push(row);
   writeAbsences(absences);
+
+  // Diese Nachricht gilt ab jetzt dauerhaft als bearbeitet - auch wenn der Eintrag
+  // später manuell oder durch die automatische Bereinigung wieder gelöscht wird. Sonst
+  // würde backfillAbsenceChannel() eine gelöschte, aber noch junge Abmeldung beim
+  // nächsten Bot-Neustart einfach wieder aus dem Kanal nachtragen.
+  markAbsenceMessageProcessed(message.id);
 
   try {
     await message.react(problem ? "⚠️" : "⏳");
