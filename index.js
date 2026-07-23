@@ -428,6 +428,17 @@ function cleanupExpiredAbsences() {
 // Fix: beim Start die letzten Nachrichten im Abmeldungs-Channel nachträglich einlesen und
 // alle, die noch nicht in absences.json stehen, wie eine frisch eingegangene Nachricht
 // verarbeiten (inkl. Format-Hinweis/Reaktion, falls nötig).
+//
+// WICHTIG: Nur Nachrichten nachtragen, die maximal ABSENCE_BACKFILL_MAX_AGE_MS alt sind.
+// Ohne dieses Zeitlimit hat "die letzten 100 Nachrichten des Kanals" beim ersten echten
+// Einsatz die komplette, teils Jahre alte Kanalgeschichte nachverarbeitet (der Kanal hatte
+// schlicht nie annähernd 100 Nachrichten in kurzer Zeit) und dabei den Chat mit Reaktionen/
+// Format-Hinweisen auf uralte Nachrichten zugespammt. Jetzt: nur Nachrichten aus dem
+// gewünschten Zeitfenster (Standard 2 Tage) werden überhaupt angefasst, alles Ältere wird
+// ignoriert, ohne Reaktion, ohne Format-Hinweis, ohne Eintrag.
+const ABSENCE_BACKFILL_MAX_AGE_MS = 2 * 24 * 60 * 60 * 1000;
+const ABSENCE_BACKFILL_MAX_PAGES = 10; // Sicherheitsgrenze: max. 1000 Nachrichten pruefen
+
 async function backfillAbsenceChannel(guild) {
   if (!CONFIG.absenceChannelId) return;
 
@@ -443,17 +454,53 @@ async function backfillAbsenceChannel(guild) {
       readAbsencesRaw().map(absence => String(absence.messageId || absence.id || ""))
     );
 
-    const fetched = await channel.messages.fetch({ limit: 100 });
-    const missing = [...fetched.values()]
+    const cutoff = Date.now() - ABSENCE_BACKFILL_MAX_AGE_MS;
+    const withinWindow = [];
+    let before;
+    let reachedCutoff = false;
+
+    // Seitenweise (je 100) von den neuesten Nachrichten rückwärts blättern, bis entweder
+    // eine Seite komplett vor dem Zeitfenster liegt, der Kanal keine Nachrichten mehr hat,
+    // oder die Sicherheitsgrenze erreicht ist. So werden auch >100 Nachrichten innerhalb
+    // des Zeitfensters erfasst, ohne jemals in die alte Kanalgeschichte vorzudringen.
+    for (let page = 0; page < ABSENCE_BACKFILL_MAX_PAGES && !reachedCutoff; page++) {
+      const fetched = await channel.messages.fetch({ limit: 100, before }).catch(error => {
+        console.error("Abmeldungs-Channel-Backfill: Seite konnte nicht geladen werden:", error);
+        return null;
+      });
+
+      if (!fetched || fetched.size === 0) break;
+
+      for (const message of fetched.values()) {
+        if (message.createdTimestamp < cutoff) {
+          reachedCutoff = true;
+          continue;
+        }
+
+        withinWindow.push(message);
+      }
+
+      before = [...fetched.values()].pop()?.id;
+      if (!before) break;
+    }
+
+    const missing = withinWindow
       .filter(message => !message.author?.bot && !existingIds.has(String(message.id)))
       .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
     if (!missing.length) return;
 
-    console.log(`🗓️  Trage ${missing.length} während der Bot-Downtime verpasste Abmeldungs-Nachricht(en) nach.`);
+    console.log(`🗓️  Trage ${missing.length} während der Bot-Downtime verpasste Abmeldungs-Nachricht(en) der letzten ${Math.round(ABSENCE_BACKFILL_MAX_AGE_MS / 86400000)} Tage nach.`);
 
     for (const message of missing) {
-      await handleAbsenceMessage(message);
+      try {
+        await handleAbsenceMessage(message);
+      } catch (error) {
+        // Fallback pro Nachricht: Eine einzelne fehlerhafte/unerwartete Nachricht (z.B.
+        // fehlender Autor, gelöschter Channel-Kontext) darf den restlichen Backfill nicht
+        // abbrechen.
+        console.error(`Abmeldungs-Backfill: Nachricht ${message.id} konnte nicht verarbeitet werden:`, error);
+      }
     }
   } catch (error) {
     console.error("Abmeldungs-Channel-Backfill fehlgeschlagen:", error);
