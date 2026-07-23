@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamSync Dashboard</title>
+    <link rel="stylesheet" href="assets/style.css?v=920">
+
+<style id="navDropdownInlineFix">
+.nav-links .nav-dropdown{
+    position:relative !important;
+    display:inline-flex !important;
+    align-items:center !important;
+}
+
+.nav-links .nav-dropdown::after{
+    content:"" !important;
+    position:absolute !important;
+    top:100% !important;
+    right:0 !important;
+    width:max(100%, 220px) !important;
+    height:12px !important;
+    display:block !important;
+    pointer-events:auto !important;
+    z-index:9998 !important;
+}
+.nav-links .nav-dropdown-toggle{
+    appearance:none !important;
+    -webkit-appearance:none !important;
+    border:none !important;
+    border-radius:999px !important;
+    background:#1f2428 !important;
+    color:#fff !important;
+    font:inherit !important;
+    font-weight:600 !important;
+    padding:9px 14px !important;
+    cursor:pointer !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:6px !important;
+    line-height:1 !important;
+}
+.nav-links .nav-dropdown.active .nav-dropdown-toggle,
+.nav-links .nav-dropdown:hover .nav-dropdown-toggle,
+.nav-links .nav-dropdown:focus-within .nav-dropdown-toggle{
+    background:#5865F2 !important;
+    color:#fff !important;
+}
+.nav-links .nav-dropdown-menu{
+    display:none !important;
+    position:absolute !important;
+    top:calc(100% + 8px) !important;
+    right:0 !important;
+    min-width:220px !important;
+    background:#23272a !important;
+    border:1px solid rgba(255,255,255,.10) !important;
+    border-radius:14px !important;
+    box-shadow:0 14px 38px rgba(0,0,0,.50) !important;
+    padding:8px !important;
+    z-index:9999 !important;
+}
+.nav-links .nav-dropdown:hover .nav-dropdown-menu,
+.nav-links .nav-dropdown:focus-within .nav-dropdown-menu{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:5px !important;
+}
+.nav-links .nav-dropdown-menu a{
+    display:block !important;
+    width:auto !important;
+    margin:0 !important;
+    padding:10px 12px !important;
+    border-radius:10px !important;
+    background:transparent !important;
+    color:#fff !important;
+    text-decoration:none !important;
+    white-space:nowrap !important;
+    text-align:left !important;
+}
+.nav-links .nav-dropdown-menu a:hover,
+.nav-links .nav-dropdown-menu a.active{
+    background:#5865F2 !important;
+    color:#fff !important;
+}
+.nav-dropdown-arrow{
+    font-size:12px !important;
+}
+@media(max-width:700px){
+    .nav-links .nav-dropdown{
+        width:100% !important;
+    }
+    .nav-links .nav-dropdown-toggle{
+        width:100% !important;
+        justify-content:center !important;
+    }
+    .nav-links .nav-dropdown-menu{
+        position:static !important;
+        width:100% !important;
+        margin-top:6px !important;
+        box-shadow:none !important;
+    }
+}
+</style>
+
+
+<style id="navDropdownPreciseHoverFix">
+/* Mehr-Dropdown: öffnet nur noch über den echten Mehr-Button */
+.nav-links .nav-dropdown::after{
+    content:none !important;
+    display:none !important;
+}
+
+.nav-links .nav-dropdown:hover .nav-dropdown-menu{
+    display:none !important;
+}
+
+.nav-links .nav-dropdown.open .nav-dropdown-menu,
+.nav-links .nav-dropdown:focus-within .nav-dropdown-menu{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:5px !important;
+}
+
+.nav-links .nav-dropdown:hover .nav-dropdown-toggle{
+    background:#1f2428 !important;
+    color:#fff !important;
+}
+
+.nav-links .nav-dropdown.active .nav-dropdown-toggle,
+.nav-links .nav-dropdown.open .nav-dropdown-toggle,
+.nav-links .nav-dropdown:focus-within .nav-dropdown-toggle,
+.nav-links .nav-dropdown:has(> .nav-dropdown-toggle:hover) .nav-dropdown-toggle{
+    background:#5865F2 !important;
+    color:#fff !important;
+}
+
+.nav-links .nav-dropdown-menu{
+    top:calc(100% + 6px) !important;
+    right:auto !important;
+    left:0 !important;
+}
+</style>
+
+
+<style id="whiteModeCompleteOverride">
+body.white-mode,
+html.white-mode body{
+    background:#f3f5f8 !important;
+    color:#16181d !important;
+}
+
+body.white-mode .nav-dropdown-menu,
+body.white-mode .nav-links .nav-dropdown-menu,
+body.white-mode .user-menu-dropdown{
+    background:#ffffff !important;
+    color:#16181d !important;
+    border-color:rgba(0,0,0,.10) !important;
+    box-shadow:0 18px 42px rgba(0,0,0,.18) !important;
+}
+
+body.white-mode .nav-dropdown-menu a,
+body.white-mode .nav-links .nav-dropdown-menu a,
+body.white-mode .user-menu-dropdown a,
+body.white-mode .user-menu-dropdown .user-menu-item{
+    color:#16181d !important;
+    background:transparent !important;
+}
+
+body.white-mode .nav-dropdown-menu a:hover,
+body.white-mode .nav-dropdown-menu a.active,
+body.white-mode .nav-links .nav-dropdown-menu a:hover,
+body.white-mode .nav-links .nav-dropdown-menu a.active,
+body.white-mode .user-menu-dropdown .user-menu-item:hover{
+    background:#5865f2 !important;
+    color:#ffffff !important;
+}
+
+body.white-mode .nav-dropdown-toggle,
+body.white-mode .nav-links .nav-dropdown-toggle,
+body.white-mode .nav-links a:not(.logout-link),
+body.white-mode .user-badge{
+    background:#eef1f5 !important;
+    color:#16181d !important;
+}
+
+body.white-mode .nav-dropdown:hover .nav-dropdown-toggle,
+body.white-mode .nav-dropdown:focus-within .nav-dropdown-toggle,
+body.white-mode .nav-links .nav-dropdown:hover .nav-dropdown-toggle,
+body.white-mode .nav-links .nav-dropdown:focus-within .nav-dropdown-toggle,
+body.white-mode .nav-links a.active:not(.logout-link),
+body.white-mode .nav-links a:not(.logout-link):hover{
+    background:#5865f2 !important;
+    color:#ffffff !important;
+}
+
+body.white-mode .logout-link,
+body.white-mode .logout-link.user-menu-original-logout-hidden{
+    display:inline-flex !important;
+    background:#c0392b !important;
+    color:#ffffff !important;
+}
+
+body.white-mode .content-card,
+body.white-mode .content-modal,
+body.white-mode .content-detail-text,
+body.white-mode .livechat-messages,
+body.white-mode .livechat-form,
+body.white-mode .onboarding-action-box,
+body.white-mode .onboarding-settings-card,
+body.white-mode .handover-card,
+body.white-mode .handover-task,
+body.white-mode .task-counter-card{
+    background:#f4f6fa !important;
+    color:#16181d !important;
+    border-color:rgba(0,0,0,.08) !important;
+}
+
+body.white-mode #absenceSearch,
+body.white-mode #archiveSearch,
+body.white-mode #forumSearch,
+body.white-mode #clipSearch,
+body.white-mode input,
+body.white-mode textarea,
+body.white-mode select{
+    background:#eef1f5 !important;
+    color:#16181d !important;
+    border-color:rgba(0,0,0,.08) !important;
+}
+
+body.white-mode input::placeholder,
+body.white-mode textarea::placeholder{
+    color:#6b7280 !important;
+}
+</style>
+</head>
+
+<body class="has-app-shell">
+<a class="corner-logo" href="./" aria-label="4Life TeamSync Startseite">
+    <img src="assets/logo.png" alt="4Life TeamSync Logo">
+</a>
+<aside class="app-sidebar">
+    <div class="app-sidebar-brand">
+        <img src="assets/logo.png" alt="4Life TeamSync Logo">
+        <div><span>TeamSync</span><small>4Life Teamboard</small></div>
+    </div>
+    <nav class="app-nav">
+        <a class="active" href="./"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9"/></svg>Teamboard</a>
+        <a href="tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 1.4 1.4L8 4.6"/><path d="m4 12 1.4 1.4L8 10.6"/><path d="m4 18 1.4 1.4L8 16.6"/></svg>Aufgaben</a>
+        <a href="absences"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>Abmeldungen</a>
+        <a href="forum"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v11H8.5L4 20.5z"/></svg>Forum</a>
+        <a href="archive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Aktenarchiv</a>
+        <a href="clips"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor" stroke="none"/></svg>Clips/Beweise</a>
+        <a href="livechat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a7.5 7.5 0 0 1-11.2 6.5L4 19l1.1-4.6A7.5 7.5 0 1 1 21 11.5Z"/></svg>Livechat</a>
+        <a class="admin-only-link hidden" href="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3 19 6v6c0 4.7-3.1 7.8-7 9-3.9-1.2-7-4.3-7-9V6z"/></svg>Admin</a>
+    </nav>
+    <div class="app-sidebar-footer">
+        <span id="userBadge" class="user-badge">Lade Nutzer...</span>
+        <a class="logout-link" href="logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Logout</a>
+    </div>
+</aside>
+<div class="container">
+    <header class="overview-hero hero-with-icon">
+        <div class="hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div>
+            <p class="overview-eyebrow">Team-Übersicht</p>
+            <h1>Wer ist gerade am Start?</h1>
+            <p class="overview-subtitle">Rollen, Status und Abteilungen deines gesamten Teams auf einen Blick.</p>
+        </div>
+    </header>
+
+    <div class="stats">
+        <div class="card card-members">
+            <div class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <h2 id="teamCount">0</h2>
+            <p>Teammitglieder</p>
+        </div>
+
+        <div class="card card-online">
+            <div class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg></div>
+            <h2 id="onlineCount">0</h2>
+            <p>Online</p>
+        </div>
+
+        <div class="card card-admins">
+            <div class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3 19 6v6c0 4.7-3.1 7.8-7 9-3.9-1.2-7-4.3-7-9V6z"/></svg></div>
+            <h2 id="adminCount">0</h2>
+            <p>Admins</p>
+        </div>
+
+        <div class="card card-mods">
+            <div class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m14.8 9.2-2 5-5 2 2-5Z"/></svg></div>
+            <h2 id="modCount">0</h2>
+            <p>Moderatoren</p>
+        </div>
+
+        <div class="card card-support">
+            <div class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/></svg></div>
+            <h2 id="supportCount">0</h2>
+            <p>Supporter</p>
+        </div>
+    </div>
+
+    <div class="overview-toolbar">
+        <div class="search-field">
+            <span class="search-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+            <input
+                type="text"
+                id="search"
+                placeholder="Teammitglied suchen..."
+            >
+        </div>
+
+        <select id="departmentFilter">
+            <option value="all">Alle Abteilungen</option>
+            <option value="Leitung">Leitung</option>
+            <option value="Admin Leitung">Admin Leitung</option>
+            <option value="Moderator Leitung">Moderator Leitung</option>
+            <option value="Support Leitung">Support Leitung</option>
+            <option value="Management Leitung">Management Leitung</option>
+            <option value="Entwickler Leitung">Entwickler Leitung</option>
+            <option value="Cardev Leitung">Cardev Leitung</option>
+            <option value="Event Leitung">Event Leitung</option>
+            <option value="Frakverwaltung Leitung">Frakverwaltung Leitung</option>
+            <option value="Management">Management</option>
+            <option value="Entwickler">Entwickler</option>
+            <option value="Event">Event</option>
+            <option value="Cardev">Cardev</option>
+            <option value="Frakverwaltung">Frakverwaltung</option>
+        </select>
+    </div>
+
+    <div id="teamCards"></div>
+</div>
+
+<div id="loginRecapPopup" class="login-recap-backdrop hidden" aria-hidden="true">
+    <section class="login-recap-popup" role="dialog" aria-modal="true" aria-labelledby="loginRecapTitle">
+        <button id="loginRecapClose" class="login-recap-close" type="button" aria-label="Schließen">×</button>
+
+        <div class="login-recap-popup-head">
+            <span class="eyebrow">Seit deinem letzten Login</span>
+            <h2 id="loginRecapTitle">Kurzer Überblick</h2>
+            <p id="loginRecapSince">Lade Änderungen...</p>
+        </div>
+
+        <div id="loginRecapGrid" class="login-recap-grid"></div>
+
+        <div class="login-recap-footer">
+            <small>Der Hinweis erscheint nur, wenn sich seit deinem letzten Login wirklich etwas getan hat.</small>
+            <button id="loginRecapOk" type="button">Verstanden</button>
+        </div>
+    </section>
+</div>
+
+<div id="personRecordModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="person-record-modal" role="dialog" aria-modal="true" aria-labelledby="personRecordTitle">
+        <button id="personRecordClose" class="modal-close" type="button" aria-label="Schließen">×</button>
+
+        <div class="person-record-header">
+            <img id="personRecordAvatar" src="assets/logo.png" alt="">
+            <div>
+                <h2 id="personRecordTitle">Team-Akte</h2>
+                <p id="personRecordSubtitle">Lade Daten...</p>
+            </div>
+        </div>
+
+        <div id="personRecordAccessDenied" class="person-record-denied hidden">
+            Du hast keinen Zugriff auf diese Akte.
+        </div>
+
+        <div id="personRecordContent" class="person-record-content hidden">
+            <div class="person-record-form">
+                <select id="personRecordType">
+                    <option value="Gut">Gut</option>
+                    <option value="Neutral" selected>Neutral</option>
+                    <option value="Schlecht">Schlecht</option>
+                </select>
+                <textarea id="personRecordNote" maxlength="2000" placeholder="Notiz zur Person eintragen..."></textarea>
+                <div class="person-record-file-row">
+                    <label class="file-upload-label" for="personRecordAttachments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;vertical-align:-2px;margin-right:5px;"><path d="M21 12.5 12.5 21a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3L15 8.5"/></svg>Datei auswählen</label>
+                    <input id="personRecordAttachments" type="file" name="attachments" multiple hidden>
+                    <div id="personRecordSelectedFiles" class="selected-files">Keine Dateien ausgewählt</div>
+                </div>
+                <button id="personRecordSave" type="button">Eintrag speichern</button>
+            </div>
+
+            <div id="personRecordEntries" class="person-record-entries"></div>
+        </div>
+    </div>
+</div>
+
+<script src="assets/script.js?v=96"></script>
+
+<script id="navDropdownPreciseHoverScript">
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".nav-dropdown").forEach(dropdown => {
+        const button = dropdown.querySelector(".nav-dropdown-toggle");
+        const menu = dropdown.querySelector(".nav-dropdown-menu");
+        let closeTimer = null;
+
+        if (!button || !menu) return;
+
+        const openMenu = () => {
+            window.clearTimeout(closeTimer);
+            dropdown.classList.add("open");
+        };
+
+        const scheduleClose = () => {
+            window.clearTimeout(closeTimer);
+            closeTimer = window.setTimeout(() => {
+                dropdown.classList.remove("open");
+            }, 280);
+        };
+
+        button.addEventListener("mouseenter", openMenu);
+        button.addEventListener("focus", openMenu);
+
+        dropdown.addEventListener("mouseenter", () => {
+            if (dropdown.classList.contains("open")) {
+                window.clearTimeout(closeTimer);
+            }
+        });
+
+        dropdown.addEventListener("mouseleave", scheduleClose);
+
+        button.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (dropdown.classList.contains("open")) {
+                dropdown.classList.remove("open");
+            } else {
+                document.querySelectorAll(".nav-dropdown.open").forEach(other => {
+                    if (other !== dropdown) other.classList.remove("open");
+                });
+                openMenu();
+            }
+        });
+
+        document.addEventListener("click", event => {
+            if (!dropdown.contains(event.target)) {
+                dropdown.classList.remove("open");
+            }
+        });
+
+        menu.addEventListener("click", event => {
+            if (event.target.closest("a")) {
+                dropdown.classList.remove("open");
+            }
+        });
+    });
+});
+</script>
+
+
+<script src="assets/user-menu.js?v=9"></script>
+
+<script id="adminNavVisibilityScript">
+document.addEventListener("DOMContentLoaded", async () => {
+    const isDetail = /\/tasks\/[^/]+\/?$/.test(window.location.pathname);
+    const prefix = isDetail ? "../" : "";
+
+    try {
+        const response = await fetch(`${prefix}api/admin/permissions?t=${Date.now()}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (data.canViewAdmin) {
+            document.querySelectorAll(".admin-only-link").forEach(link => {
+                link.classList.remove("hidden");
+            });
+        }
+    } catch (_) {}
+});
+</script>
+
+</body>
+</html>

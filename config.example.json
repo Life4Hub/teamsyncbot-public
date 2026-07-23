@@ -1,0 +1,11 @@
+{
+  "token": "YOUR_DISCORD_BOT_TOKEN",
+  "guildId": "YOUR_DISCORD_GUILD_ID",
+  "clientId": "YOUR_DISCORD_CLIENT_ID",
+  "clientSecret": "YOUR_DISCORD_CLIENT_SECRET",
+  "redirectUri": "http://YOUR_SERVER_HOST:3010/Teamboard/auth/discord/callback",
+  "sessionSecret": "CHANGE_ME_TO_A_RANDOM_SECRET",
+  "taskNotifyChannelId": "YOUR_TASK_NOTIFY_CHANNEL_ID",
+  "dashboardUrl": "http://YOUR_SERVER_HOST:3010/Teamboard/",
+  "absenceChannelId": "YOUR_ABSENCE_CHANNEL_ID"
+}

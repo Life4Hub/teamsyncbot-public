@@ -1,0 +1,11 @@
+node_modules/
+*.db
+*.db-shm
+*.db-wal
+backups/
+uploads/
+.env
+diagnostic_logs.json
+
+config.json
+.claude/scheduled_tasks.lock
