@@ -29,6 +29,7 @@ Erkannt werden u. a.:
 - morgen
 - bis Sonntag
 - bis Sonntag Abend
+- 22.07-10.08 (Zeitraum: Start- und Enddatum, auch mit Jahr, z. B. 22.07.2026-10.08.2026)
 
 Empfohlenes Format:
 ```text

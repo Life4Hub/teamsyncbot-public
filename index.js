@@ -168,6 +168,49 @@ function parseAbsenceEndDate(durationText, referenceDate = new Date()) {
     };
   }
 
+  // Zeitraum mit Trennzeichen ("22.07-10.08", "22.07.2026 - 10.08.2026", "22.07 bis
+  // 10.08"): zwei Datumsangaben hintereinander, erste ist der Start, zweite das Ende.
+  // Ohne diese Erkennung fand der einzelne Datums-Regex weiter unten nur die ERSTE
+  // Datumsangabe und ignorierte den Rest - das eigentliche Enddatum - komplett.
+  const rangeMatch = normalized.match(
+    /\b(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\s*(?:-|–|bis)\s*(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\b/
+  );
+
+  if (rangeMatch) {
+    const startDay = Number(rangeMatch[1]);
+    const startMonth = Number(rangeMatch[2]);
+    const endDay = Number(rangeMatch[4]);
+    const endMonth = Number(rangeMatch[5]);
+
+    let startYear = rangeMatch[3] ? Number(rangeMatch[3]) : null;
+    let endYear = rangeMatch[6] ? Number(rangeMatch[6]) : null;
+
+    if (startYear !== null && startYear < 100) startYear += 2000;
+    if (endYear !== null && endYear < 100) endYear += 2000;
+
+    // Fehlt ein Jahr, erst das jeweils andere Jahr aus dem Bereich übernehmen,
+    // sonst das aktuelle Jahr.
+    if (startYear === null) startYear = endYear ?? referenceDate.getFullYear();
+    if (endYear === null) endYear = startYear;
+
+    const start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+    let end = new Date(endYear, endMonth - 1, endDay, 23, 59, 0, 0);
+
+    // Bereich geht über den Jahreswechsel (z. B. "28.12-05.01") und kein Jahr wurde
+    // explizit genannt: Enddatum läge sonst vor dem Startdatum -> ein Jahr weiter.
+    if (!rangeMatch[3] && !rangeMatch[6] && end.getTime() < start.getTime()) {
+      end = new Date(endYear + 1, endMonth - 1, endDay, 23, 59, 0, 0);
+    }
+
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      return {
+        endAt: end.toISOString(),
+        startAt: start.toISOString(),
+        parseStatus: "parsed"
+      };
+    }
+  }
+
   const dateMatch = normalized.match(/\b(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\b/);
 
   if (dateMatch) {
@@ -412,7 +455,7 @@ function buildAbsenceFormatHelp(problem = "") {
     "Bis: 09.07.2026 18:00",
     "Grund: kurzer Grund",
     "```",
-    "Alternativ geht z. B.: `Bis: morgen`, `Bis: Sonntag Abend`, `Dauer: 3 Tage`.",
+    "Alternativ geht z. B.: `Bis: morgen`, `Bis: Sonntag Abend`, `Dauer: 3 Tage`, `Dauer: 22.07-10.08`.",
     "Wenn du jemand anderen abmeldest, markiere die Person zusätzlich mit @Name."
   ].join("\n");
 }
@@ -600,7 +643,10 @@ async function handleAbsenceMessage(message) {
     userName: targetMember?.displayName || targetUser.globalName || targetUser.username || targetUser.id,
     durationText,
     reason,
-    startAt: (message.createdAt || new Date()).toISOString(),
+    // Bei einem erkannten Zeitraum ("22.07-10.08") liefert parseAbsenceEndDate ein
+    // explizites startAt (den Beginn des Zeitraums) - sonst wie bisher der Zeitpunkt,
+    // zu dem die Nachricht gepostet wurde.
+    startAt: parsed.startAt || (message.createdAt || new Date()).toISOString(),
     endAt: parsed.endAt,
     // Neue Abmeldungen sind immer erst beantragt. Aktiv wird es erst nach Admin-Freigabe.
     status: parsed.endAt ? "Beantragt" : "Unklar",
