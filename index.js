@@ -455,7 +455,14 @@ function buildAbsenceFormatHelp(problem = "") {
     "Bis: 09.07.2026 18:00",
     "Grund: kurzer Grund",
     "```",
-    "Alternativ geht z. B.: `Bis: morgen`, `Bis: Sonntag Abend`, `Dauer: 3 Tage`, `Dauer: 22.07-10.08`.",
+    "Meldest du dich für einen längeren Zeitraum ab, gib Start- UND Enddatum durch einen Bindestrich getrennt an:",
+    "```",
+    "Abmeldung",
+    "Dauer: 22.07-10.08",
+    "Grund: kurzer Grund",
+    "```",
+    "Das erkennt auch Jahreszahlen (`22.07.2026-10.08.2026`) und das Wort „bis“ statt Bindestrich (`22.07 bis 10.08`).",
+    "Alternativ geht z. B. auch: `Bis: morgen`, `Bis: Sonntag Abend`, `Dauer: 3 Tage`.",
     "Wenn du jemand anderen abmeldest, markiere die Person zusätzlich mit @Name."
   ].join("\n");
 }
