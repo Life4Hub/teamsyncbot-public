@@ -190,15 +190,27 @@ function parseAbsenceEndDate(durationText, referenceDate = new Date()) {
 
     // Fehlt ein Jahr, erst das jeweils andere Jahr aus dem Bereich übernehmen,
     // sonst das aktuelle Jahr.
+    const yearsGiven = Boolean(rangeMatch[3] || rangeMatch[6]);
+
     if (startYear === null) startYear = endYear ?? referenceDate.getFullYear();
     if (endYear === null) endYear = startYear;
 
-    const start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+    let start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
     let end = new Date(endYear, endMonth - 1, endDay, 23, 59, 0, 0);
 
     // Bereich geht über den Jahreswechsel (z. B. "28.12-05.01") und kein Jahr wurde
     // explizit genannt: Enddatum läge sonst vor dem Startdatum -> ein Jahr weiter.
-    if (!rangeMatch[3] && !rangeMatch[6] && end.getTime() < start.getTime()) {
+    if (!yearsGiven && end.getTime() < start.getTime()) {
+      end = new Date(endYear + 1, endMonth - 1, endDay, 23, 59, 0, 0);
+    }
+
+    // Der ganze Zeitraum liegt (ohne explizite Jahresangabe) bereits in der
+    // Vergangenheit - z. B. eine Nachricht im November über "05.01-20.01" meint
+    // eindeutig den kommenden Januar, nicht den vergangenen. Ohne diese Prüfung
+    // (analog zur Einzeldatum-Logik weiter unten) wäre die Abmeldung sofort als
+    // "Abgelaufen" markiert worden, obwohl sie erst noch bevorsteht.
+    if (!yearsGiven && end.getTime() < referenceDate.getTime() - 24 * 60 * 60 * 1000) {
+      start = new Date(startYear + 1, startMonth - 1, startDay, 0, 0, 0, 0);
       end = new Date(endYear + 1, endMonth - 1, endDay, 23, 59, 0, 0);
     }
 
