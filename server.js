@@ -1012,6 +1012,97 @@ function getDashboardTaskDetailUrl(taskId) {
     return `${getDashboardTaskUrl().replace(/\/+$/g, "")}/${encodeURIComponent(taskId)}`;
 }
 
+function getDashboardLivechatUrl() {
+    if (CONFIG.dashboardUrl) {
+        return CONFIG.dashboardUrl.replace(/\/+$/g, "") + "/livechat";
+    }
+
+    if (CONFIG.redirectUri) {
+        return CONFIG.redirectUri.replace(`${BASE_PATH}/auth/discord/callback`, `${BASE_PATH}/livechat`);
+    }
+
+    return `${BASE_PATH}/livechat`;
+}
+
+// Nimmt die vom Client mitgeschickte Mentions-Liste (JSON-String mit {id,name}-Einträgen)
+// entgegen und lässt NUR IDs durch, die auch wirklich aktuelle Teammitglieder sind (Quelle:
+// team.json, nicht der Client) - so kann niemand über eine manipulierte Anfrage beliebige
+// Discord-IDs anpingen lassen. Der Name wird ebenfalls aus team.json übernommen statt vom
+// Client übernommen, damit die gerenderte @-Erwähnung immer zum echten Nutzer passt.
+function resolveMentionTargets(rawMentionsInput, excludeUserId) {
+    let parsed;
+
+    try {
+        parsed = JSON.parse(String(rawMentionsInput || "[]"));
+    } catch {
+        parsed = [];
+    }
+
+    if (!Array.isArray(parsed)) return [];
+
+    const currentTeam = readJsonFile(teamFile, []) || [];
+    const teamById = new Map(currentTeam.map(member => [String(member.id || ""), member]));
+
+    const seen = new Set();
+    const targets = [];
+
+    for (const item of parsed) {
+        const id = String((item && item.id) || "").trim();
+        if (!id || id === String(excludeUserId || "") || seen.has(id)) continue;
+
+        const member = teamById.get(id);
+        if (!member) continue;
+
+        seen.add(id);
+        targets.push({ id, name: String(member.name || member.username || id) });
+    }
+
+    return targets;
+}
+
+// Generische DM-Benachrichtigung für @-Erwähnungen in Chats (Aufgaben-Kommentare, Livechat).
+// Nutzt bewusst dieselbe Queue-Datei wie die Aufgaben-Benachrichtigungen (task_notifications.json),
+// damit index.js dieselbe, schon vorhandene Verarbeitungsschleife (processTaskNotifications)
+// wiederverwenden kann, statt eine zweite parallele Warteschlange pflegen zu müssen.
+function queueMentionNotifications(targets, context = {}) {
+    if (!Array.isArray(targets) || !targets.length) return;
+
+    const notifications = readJsonFile(notificationsFile, []);
+    const now = new Date().toISOString();
+    const dedupeId = context.dedupeId || "";
+
+    const existingKeys = new Set(
+        notifications
+            .filter(notification => notification.status !== "failed" && notification.status !== "skipped")
+            .map(notification => [notification.type || "", notification.assigneeId, notification.dedupeId || ""].join(":"))
+    );
+
+    for (const target of targets) {
+        const key = ["mention", target.id, dedupeId].join(":");
+        if (existingKeys.has(key)) continue;
+        existingKeys.add(key);
+
+        notifications.push({
+            id: crypto.randomUUID(),
+            dedupeId,
+            type: "mention",
+            status: "pending",
+            assigneeId: target.id,
+            assignee: target.name,
+            mentionContext: context.contextLabel || "",
+            mentionUrl: context.url || "",
+            commentBy: context.authorName || "Unbekannt",
+            commentById: context.authorId || "",
+            commentMessage: context.message || "",
+            channelId: "",
+            createdAt: now,
+            attempts: 0
+        });
+    }
+
+    writeJsonFile(notificationsFile, notifications);
+}
+
 function normalizeTaskDepartment(value) {
     const department = String(value || "Allgemein").trim();
     return TASK_DEPARTMENTS.includes(department) ? department : "Allgemein";
@@ -3919,6 +4010,11 @@ function migrateLiveChatMessage(message) {
         userName: String(message.userName || "Unbekannt"),
         avatar: String(message.avatar || "https://cdn.discordapp.com/embed/avatars/0.png"),
         message: String(message.message || ""),
+        mentions: Array.isArray(message.mentions)
+            ? message.mentions
+                .filter(mention => mention && mention.id)
+                .map(mention => ({ id: String(mention.id), name: String(mention.name || "") }))
+            : [],
         attachments: normalizeAttachmentList(message.attachments, {
             uploadedById: message.userId,
             uploadedByName: message.userName
@@ -5528,12 +5624,15 @@ router.post("/api/livechat/messages", requireAuth, async (req, res) => {
         return res.status(400).json({ error: `Nachricht darf maximal ${MAX_LIVE_CHAT_MESSAGE_LENGTH} Zeichen haben.` });
     }
 
+    const mentionTargets = resolveMentionTargets(req.body.mentions, req.session.user.id);
+
     const chatMessage = migrateLiveChatMessage({
         id: messageId,
         userId: req.session.user.id,
         userName: getRequestUserName(req),
         avatar: req.session.user.avatar || "https://cdn.discordapp.com/embed/avatars/0.png",
         message: text,
+        mentions: mentionTargets,
         attachments,
         createdAt: new Date().toISOString()
     });
@@ -5545,6 +5644,15 @@ router.post("/api/livechat/messages", requireAuth, async (req, res) => {
     if (io) {
         io.to("livechat").emit("livechat:message", chatMessage);
     }
+
+    queueMentionNotifications(mentionTargets, {
+        dedupeId: `livechat-mention:${chatMessage.id}`,
+        contextLabel: "Livechat",
+        url: getDashboardLivechatUrl(),
+        authorName: chatMessage.userName,
+        authorId: chatMessage.userId,
+        message: chatMessage.message
+    });
 
     res.status(201).json(chatMessage);
 });
@@ -6224,11 +6332,14 @@ router.post("/api/tasks/:id/comments", requireAuth, async (req, res) => {
         return res.status(404).json({ error: "Aufgabe nicht gefunden" });
     }
 
+    const mentionTargets = resolveMentionTargets(req.body.mentions, req.session.user.id);
+
     const comment = {
         id: crypto.randomUUID(),
         userId: req.session.user.id,
         userName: req.session.user.globalName || req.session.user.username || req.session.user.id,
         message,
+        mentions: mentionTargets,
         attachments,
         createdAt: new Date().toISOString()
     };
@@ -6239,6 +6350,14 @@ router.post("/api/tasks/:id/comments", requireAuth, async (req, res) => {
 
     writeTasks(tasks);
     queueTaskCommentNotifications(tasks[index], comment);
+    queueMentionNotifications(mentionTargets, {
+        dedupeId: `task-comment-mention:${comment.id}`,
+        contextLabel: `Aufgabe "${tasks[index].title}"`,
+        url: getDashboardTaskDetailUrl(req.params.id),
+        authorName: comment.userName,
+        authorId: comment.userId,
+        message: comment.message
+    });
     emitTaskUpdated(req.params.id, "comment-created");
 
     res.status(201).json(comment);

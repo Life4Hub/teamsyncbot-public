@@ -262,8 +262,9 @@ body.white-mode textarea::placeholder{
     <section class="content-panel livechat-panel">
         <h2>Livechat</h2>
         <div id="liveChatMessages" class="livechat-messages">Lade Nachrichten...</div>
-        <div class="livechat-form">
-            <textarea id="liveChatMessage" maxlength="4000" placeholder="Nachricht schreiben..."></textarea>
+        <div class="livechat-form" style="position:relative;">
+            <textarea id="liveChatMessage" maxlength="4000" placeholder="Nachricht schreiben... (@ für Erwähnung)"></textarea>
+            <div id="liveChatMentionDropdown" class="mention-dropdown"></div>
             <div class="comment-upload-row">
                 <label class="file-upload-label" for="liveChatAttachments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;vertical-align:-2px;margin-right:5px;"><path d="M21 12.5 12.5 21a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3L15 8.5"/></svg>Dateien auswählen</label>
                 <input id="liveChatAttachments" type="file" multiple hidden>
@@ -275,7 +276,8 @@ body.white-mode textarea::placeholder{
 </div>
 
 <script src="socket.io/socket.io.js"></script>
-<script src="assets/livechat.js?v=70"></script>
+<script src="assets/mentions.js?v=1"></script>
+<script src="assets/livechat.js?v=71"></script>
 
 <script id="navDropdownPreciseHoverScript">
 document.addEventListener("DOMContentLoaded", () => {

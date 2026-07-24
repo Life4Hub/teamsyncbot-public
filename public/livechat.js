@@ -5,6 +5,8 @@ let currentUser = null;
 let canManageLivechat = false;
 let liveSocket = null;
 let liveMessages = [];
+let mentionableUsers = [];
+let liveChatMentionPicker = null;
 
 function escapeHtml(value) {
     return String(value || "")
@@ -58,6 +60,23 @@ async function loadCurrentUser() {
     } catch (error) {
         console.error(error);
     }
+}
+
+async function loadMentionableUsers() {
+    try {
+        const users = await apiRequest("api/users?t=" + Date.now());
+        mentionableUsers = (Array.isArray(users) ? users : []).filter(user => user.isTeamMember !== false);
+    } catch (error) {
+        console.error("Nutzerliste für @-Erwähnungen konnte nicht geladen werden:", error);
+    }
+}
+
+function setupLiveChatMentionPicker() {
+    liveChatMentionPicker = createMentionPicker({
+        textarea: document.getElementById("liveChatMessage"),
+        dropdown: document.getElementById("liveChatMentionDropdown"),
+        getUsers: () => mentionableUsers
+    });
 }
 
 function downloadUrl(url) {
@@ -258,7 +277,7 @@ function renderMessage(message) {
                     <strong>${escapeHtml(message.userName || "Unbekannt")}</strong>
                     <span>${escapeHtml(formatDate(message.createdAt))}${editedText}</span>
                 </div>
-                ${message.message ? `<div class="livechat-text">${escapeHtml(message.message).replaceAll("\n", "<br>")}</div>` : ""}
+                ${message.message ? `<div class="livechat-text">${renderTextWithMentions(escapeHtml(message.message), message.mentions).replaceAll("\n", "<br>")}</div>` : ""}
                 ${renderAttachments(message.attachments, { messageId: message.id, canDelete: canDeleteMessage(message) })}
                 ${renderMessageActions(message)}
             </div>
@@ -439,8 +458,11 @@ async function sendMessage() {
 
     validateFiles(files);
 
+    const mentions = liveChatMentionPicker ? liveChatMentionPicker.getMentionsForSend() : [];
+
     const formData = new FormData();
     formData.append("message", message);
+    formData.append("mentions", JSON.stringify(mentions));
     for (const file of files) formData.append("attachments", file);
 
     setButtonLoading("sendLiveChatBtn", true, "Sendet...");
@@ -450,6 +472,7 @@ async function sendMessage() {
 
         textarea.value = "";
         if (fileInput) fileInput.value = "";
+        liveChatMentionPicker?.reset();
         updateSelectedFiles();
     } finally {
         setButtonLoading("sendLiveChatBtn", false);
@@ -494,6 +517,8 @@ async function init() {
     setupEvents();
     await loadCurrentUser();
     await loadLiveChatPermissions();
+    await loadMentionableUsers();
+    setupLiveChatMentionPicker();
     updateSelectedFiles();
     await loadMessages();
     setupRealtime();

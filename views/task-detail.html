@@ -325,8 +325,9 @@ body.white-mode textarea::placeholder{
     <section class="task-panel">
         <h2>Aufgaben-Chat</h2>
         <div id="commentsList" class="comments-list">Lade Chat...</div>
-        <div class="comment-form">
-            <textarea id="commentMessage" placeholder="Nachricht schreiben..."></textarea>
+        <div class="comment-form" style="position:relative;">
+            <textarea id="commentMessage" placeholder="Nachricht schreiben... (@ für Erwähnung)"></textarea>
+            <div id="commentMentionDropdown" class="mention-dropdown"></div>
 
             <div class="comment-upload-row">
                 <label class="file-upload-label" for="commentAttachments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;vertical-align:-2px;margin-right:5px;"><path d="M21 12.5 12.5 21a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3L15 8.5"/></svg>Dateien auswählen</label>
@@ -340,7 +341,8 @@ body.white-mode textarea::placeholder{
 </div>
 
 <script src="../socket.io/socket.io.js"></script>
-<script src="../assets/task-detail.js?v=90"></script>
+<script src="../assets/mentions.js?v=1"></script>
+<script src="../assets/task-detail.js?v=91"></script>
 
 <script id="navDropdownPreciseHoverScript">
 document.addEventListener("DOMContentLoaded", () => {

@@ -8,6 +8,8 @@ let currentRoles = [];
 let departments = ["Allgemein"];
 let realtimeSocket = null;
 let realtimeReloadPending = false;
+let mentionableUsers = [];
+let commentMentionPicker = null;
 
 // Ein Live-Update (siehe scheduleRealtimeReload/setupRealtimeChat) hat bisher bei JEDEM
 // task:updated-Socket-Event (z.B. wenn irgendwer einen Kommentar schreibt) alle
@@ -268,6 +270,23 @@ async function loadCurrentUser() {
     }
 }
 
+async function loadMentionableUsers() {
+    try {
+        const users = await apiRequest("../api/users?t=" + Date.now());
+        mentionableUsers = (Array.isArray(users) ? users : []).filter(user => user.isTeamMember !== false);
+    } catch (error) {
+        console.error("Nutzerliste für @-Erwähnungen konnte nicht geladen werden:", error);
+    }
+}
+
+function setupCommentMentionPicker() {
+    commentMentionPicker = createMentionPicker({
+        textarea: document.getElementById("commentMessage"),
+        dropdown: document.getElementById("commentMentionDropdown"),
+        getUsers: () => mentionableUsers
+    });
+}
+
 async function loadDepartments() {
     departments = await apiRequest("../api/departments?t=" + Date.now());
 }
@@ -444,7 +463,7 @@ function renderComments() {
                     ${comment.editedAt ? " · bearbeitet" : ""}
                 </span>
             </div>
-            ${comment.message ? `<div class="comment-body">${escapeHtml(comment.message)}</div>` : ""}
+            ${comment.message ? `<div class="comment-body">${renderTextWithMentions(escapeHtml(comment.message), comment.mentions)}</div>` : ""}
             ${renderAttachments(comment.attachments, { commentId: comment.id, canDelete: canDeleteComment(comment) })}
             ${renderCommentActions(comment)}
         </div>
@@ -567,8 +586,11 @@ async function sendComment() {
 
     validateFiles(files);
 
+    const mentions = commentMentionPicker ? commentMentionPicker.getMentionsForSend() : [];
+
     const formData = new FormData();
     formData.append("message", message);
+    formData.append("mentions", JSON.stringify(mentions));
 
     for (const file of files) {
         formData.append("attachments", file);
@@ -581,6 +603,7 @@ async function sendComment() {
 
         textarea.value = "";
         if (fileInput) fileInput.value = "";
+        commentMentionPicker?.reset();
         updateSelectedFilesLabel();
         // preserveDirtyFields: Kommentar abschicken darf keine unabhängig davon laufende,
         // noch nicht gespeicherte Bearbeitung der Aufgabenfelder verwerfen.
@@ -645,9 +668,11 @@ function setupDirtyFieldTracking() {
 async function init() {
     await loadCurrentUser();
     await loadDepartments();
+    await loadMentionableUsers();
     await loadTask();
     updateSelectedFilesLabel();
     setupDirtyFieldTracking();
+    setupCommentMentionPicker();
     setupRealtimeChat();
 }
 

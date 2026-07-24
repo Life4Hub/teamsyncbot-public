@@ -631,7 +631,33 @@ async function backfillAbsenceChannel(guild) {
   }
 }
 
+// Die Live-messageCreate-Listener sind schon aktiv, bevor backfillAbsenceChannel() beim
+// Start fertig ist - eine Nachricht, die genau während des Backfills neu eingeht, kann
+// dadurch gleichzeitig vom Live-Handler UND vom Backfill aufgegriffen werden. Beide
+// Aufrufe würden dieselbe Discord-Nachricht parallel verarbeiten (doppelte Reaktion,
+// doppelter Format-Hinweis, zwei sich überschreibende Schreibvorgänge) - genau das vom
+// Nutzer beobachtete "manchmal doppelt erkannt" bei Nachrichten rund um einen Neustart.
+// Dieses Set sorgt dafür, dass eine Nachricht immer nur von EINEM der beiden Aufrufer
+// gleichzeitig bearbeitet wird.
+const absenceMessagesBeingProcessed = new Set();
+
 async function handleAbsenceMessage(message) {
+  const messageId = String(message?.id || "");
+
+  if (messageId && absenceMessagesBeingProcessed.has(messageId)) {
+    return;
+  }
+
+  if (messageId) absenceMessagesBeingProcessed.add(messageId);
+
+  try {
+    await handleAbsenceMessageOnce(message);
+  } finally {
+    if (messageId) absenceMessagesBeingProcessed.delete(messageId);
+  }
+}
+
+async function handleAbsenceMessageOnce(message) {
   const content = String(message.content || "").trim();
 
   if (!content) return;
@@ -714,6 +740,23 @@ function formatTaskNotification(notification) {
   const isAssignedLater = notification.type === "task-assigned";
   const isTaskComment = notification.type === "task-comment";
   const isDueSoon = notification.type === "task-due-soon";
+  const isMention = notification.type === "mention";
+
+  if (isMention) {
+    const lines = [
+      `🔔 **${notification.commentBy || "Jemand"}** hat dich${notification.mentionContext ? ` in ${notification.mentionContext}` : ""} erwähnt`
+    ];
+
+    if (notification.commentMessage) {
+      lines.push(`💬 Nachricht: ${truncateText(notification.commentMessage)}`);
+    }
+
+    if (notification.mentionUrl) {
+      lines.push(`🔗 Öffnen: ${notification.mentionUrl}`);
+    }
+
+    return lines.join("\n");
+  }
 
   if (isTaskComment) {
     const lines = [
@@ -912,9 +955,9 @@ async function processTaskNotifications(client) {
           ? CONFIG.taskNotifyChannelId
           : notification.channelId;
 
-        // Chatnachrichten sollen NUR per DM rausgehen, nicht in den Discord-Channel.
+        // Chatnachrichten und @-Erwähnungen sollen NUR per DM rausgehen, nicht in den Discord-Channel.
         // Auch wenn channelId leer ist, wird bewusst kein Fallback auf den Standard-Channel genutzt.
-        if (notification.type === "task-comment" || !String(configuredChannelId || "")) {
+        if (notification.type === "task-comment" || notification.type === "mention" || !String(configuredChannelId || "")) {
           notification.status = "sent";
           notification.sentAt = new Date().toISOString();
           changed = true;
