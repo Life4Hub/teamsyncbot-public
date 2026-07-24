@@ -4221,13 +4221,23 @@ app.get("/", (req, res) => {
     res.redirect(301, BASE_PATH + "/");
 });
 
-// Static assets stay public, otherwise the login page would have no CSS.
+// Static assets stay public, otherwise die Login-Seite hätte kein CSS.
+// maxAge bewusst NICHT gesetzt (bzw. auf 0): Mit z.B. "1h" hätte der Browser eine
+// Stunde lang gar nicht erst beim Server nachgefragt, ob sich eine Datei geändert hat -
+// selbst ein neu hochgeladenes JS/CSS wäre bis dahin unsichtbar geblieben, außer man
+// hätte per Strg+F5 den kompletten Cache geleert. Mit no-cache muss der Browser bei
+// jedem Laden per ETag/Last-Modified beim Server nachfragen; ist die Datei unverändert,
+// kommt nur eine winzige 304-Antwort zurück (kein erneuter Download) - hat sie sich
+// geändert, kommt sofort die neue Version an, ganz ohne manuellen Hard-Refresh.
 app.use(
     `${BASE_PATH}/assets`,
     express.static(publicDir, {
         redirect: false,
         index: false,
-        maxAge: "1h"
+        maxAge: 0,
+        setHeaders: res => {
+            res.setHeader("Cache-Control", "no-cache");
+        }
     })
 );
 
