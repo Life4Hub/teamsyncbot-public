@@ -1422,9 +1422,44 @@ function isRelevantAbsenceForHandover(absence) {
     return true;
 }
 
+function isMoreRelevantAbsenceForHandover(candidate, current) {
+    const statusRank = status => (status === "Aktiv" ? 0 : 1);
+    const candidateRank = statusRank(candidate.status);
+    const currentRank = statusRank(current.status);
+
+    if (candidateRank !== currentRank) return candidateRank < currentRank;
+
+    const candidateEnd = candidate.endAt ? new Date(candidate.endAt).getTime() : Infinity;
+    const currentEnd = current.endAt ? new Date(current.endAt).getTime() : Infinity;
+
+    return candidateEnd < currentEnd;
+}
+
 function buildAbsenceHandoverSuggestions() {
     const tasks = readTasks().filter(isOpenTaskForAutomation);
-    const absences = readAbsencesRawForManagement().filter(isRelevantAbsenceForHandover);
+    const relevantAbsences = readAbsencesRawForManagement().filter(isRelevantAbsenceForHandover);
+
+    // Eine Person kann mehrere gleichzeitig "relevante" Abmeldungen haben (z. B. eine
+    // zweite, ergänzende oder korrigierende Nachricht für denselben/überschneidenden
+    // Zeitraum). Ohne Deduplizierung nach Nutzer erschien dieselbe Person mit exakt
+    // derselben Aufgabenliste mehrfach im Übergabevorschläge-Panel - das sah wie ein
+    // Anzeigefehler ("doppelt") aus, war aber eine doppelte Datengrundlage. Pro Person
+    // wird jetzt nur die relevanteste Abmeldung behalten (Aktiv vor Beantragt, danach
+    // die am nächsten endende).
+    const dedupedByUser = new Map();
+
+    for (const absence of relevantAbsences) {
+        const userId = String(absence.userId || "");
+        if (!userId) continue;
+
+        const existing = dedupedByUser.get(userId);
+
+        if (!existing || isMoreRelevantAbsenceForHandover(absence, existing)) {
+            dedupedByUser.set(userId, absence);
+        }
+    }
+
+    const absences = [...dedupedByUser.values()];
 
     return absences
         .map(absence => {
@@ -4509,7 +4544,24 @@ router.get("/api/departments", requireAuth, (req, res) => {
 });
 
 router.get("/api/users", requireAuth, (req, res) => {
-    res.json(readJsonFile(usersFile, []));
+    // users.json ist ein reiner Login-Cache (jeder, der sich je eingeloggt hat, bleibt für
+    // immer drin - es gibt keinen Ablauf) und war bisher direkt die Quelle für die
+    // Zuständigen-Auswahl bei Aufgaben. Dadurch blieben ehemalige Teammitglieder (die
+    // Discord/den Server längst verlassen haben) dauerhaft als Verantwortliche auswählbar.
+    // Fix: hier zusätzlich mit dem aktuellen Team (team.json, vom Bot laufend synchron
+    // gehalten) abgleichen und pro Nutzer markieren, ob er aktuell noch Teammitglied ist.
+    // Die Liste selbst bleibt vollständig (damit bereits zugewiesene, aber ausgeschiedene
+    // Personen in bestehenden Aufgaben weiterhin korrekt mit Namen angezeigt werden) -
+    // das Frontend blendet anhand von isTeamMember nur die NEUE Auswahl aus.
+    const users = readJsonFile(usersFile, []);
+    const currentTeamIds = new Set(
+        (readJsonFile(teamFile, []) || []).map(member => String(member.id || ""))
+    );
+
+    res.json(users.map(user => ({
+        ...user,
+        isTeamMember: currentTeamIds.has(String(user.id || ""))
+    })));
 });
 
 router.get("/api/admin/permissions", requireAuth, async (req, res) => {
@@ -5797,6 +5849,12 @@ router.put("/api/absences/:id", requireAuth, requireAbsenceManager, async (req, 
     const nextEndAt = Object.prototype.hasOwnProperty.call(req.body || {}, "endAt")
         ? formatDatetimeLocalForStorage(req.body.endAt)
         : previous.endAt;
+    // Das Bearbeiten-Formular erlaubte bisher nur das Ändern des Enddatums - das
+    // Startdatum (startAt) war im Formular gar nicht editierbar. Analog zu endAt jetzt
+    // ebenfalls übernehmen, wenn mitgeschickt.
+    const nextStartAt = Object.prototype.hasOwnProperty.call(req.body || {}, "startAt")
+        ? formatDatetimeLocalForStorage(req.body.startAt)
+        : previous.startAt;
 
     const updated = appendAbsenceHistory({
         ...previous,
@@ -5804,6 +5862,7 @@ router.put("/api/absences/:id", requireAuth, requireAbsenceManager, async (req, 
         userName: String(req.body?.userName || teamMember?.name || teamMember?.username || previous.userName || nextUserId || "Unbekannt"),
         durationText: String(req.body?.durationText || previous.durationText || ""),
         reason: String(req.body?.reason || ""),
+        startAt: nextStartAt || previous.startAt,
         endAt: nextEndAt,
         status: nextStatus,
         parseStatus: nextStatus === "Aktiv"
@@ -5818,6 +5877,7 @@ router.put("/api/absences/:id", requireAuth, requireAbsenceManager, async (req, 
         previous: {
             userId: previous.userId,
             userName: previous.userName,
+            startAt: previous.startAt,
             endAt: previous.endAt,
             reason: previous.reason,
             status: previous.status
@@ -5825,6 +5885,7 @@ router.put("/api/absences/:id", requireAuth, requireAbsenceManager, async (req, 
         next: {
             userId: nextUserId,
             userName: teamMember?.name || req.body?.userName || previous.userName,
+            startAt: nextStartAt || previous.startAt,
             endAt: nextEndAt,
             reason: String(req.body?.reason || ""),
             status: nextStatus

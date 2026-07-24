@@ -588,6 +588,10 @@ function ensureAbsenceModal() {
                     </select>
                 </label>
                 <label>
+                    Startdatum/Zeit
+                    <input id="absenceEditStartAt" type="datetime-local">
+                </label>
+                <label>
                     Enddatum/Zeit
                     <input id="absenceEditEndAt" type="datetime-local">
                 </label>
@@ -669,6 +673,7 @@ function openAbsenceModal(id, mode = "edit") {
 
     document.getElementById("absenceEditUserId").innerHTML = renderTeamMemberOptions(absence.userId);
     document.getElementById("absenceEditStatus").value = absence.status || "Beantragt";
+    document.getElementById("absenceEditStartAt").value = formatDateTimeLocal(absence.startAt);
     document.getElementById("absenceEditEndAt").value = formatDateTimeLocal(absence.endAt);
     document.getElementById("absenceEditDurationText").value = absence.durationText || "";
     document.getElementById("absenceEditReason").value = absence.reason || "";
@@ -692,6 +697,7 @@ async function saveAbsenceEdit() {
         userId,
         userName: selectedMember?.name || selectedMember?.username || userId,
         status: document.getElementById("absenceEditStatus").value,
+        startAt: document.getElementById("absenceEditStartAt").value || "",
         endAt: document.getElementById("absenceEditEndAt").value || "",
         durationText: document.getElementById("absenceEditDurationText").value || "",
         reason: document.getElementById("absenceEditReason").value || ""

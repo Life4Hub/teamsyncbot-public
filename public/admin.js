@@ -486,6 +486,12 @@ function renderOnboardingReset(data) {
     const target = document.getElementById("onboardingResetOverview");
     if (!target) return;
 
+    // Das automatische Live-Update (alle 10s, siehe autoRefreshTimer) hat diese Auswahl
+    // bisher bei jedem Durchlauf stillschweigend zurückgesetzt, weil das <select> komplett
+    // neu aufgebaut wurde. Auswahl vor dem Neuaufbau merken und danach wiederherstellen,
+    // analog zu renderAudit().
+    const previousSelectedUserId = document.getElementById("onboardingResetUserSelect")?.value || "";
+
     const onboarding = data.onboarding || {};
     const members = Array.isArray(onboarding.members) ? onboarding.members : [];
     const resettable = members.filter(member => member.known);
@@ -529,6 +535,11 @@ function renderOnboardingReset(data) {
             `).join("") : `<div class="admin-empty">Keine Nutzer vorhanden.</div>`}
         </div>
     `;
+
+    const nextSelect = document.getElementById("onboardingResetUserSelect");
+    if (nextSelect && previousSelectedUserId) {
+        nextSelect.value = previousSelectedUserId;
+    }
 }
 
 function renderAdminQuietHours(data) {
@@ -537,6 +548,16 @@ function renderAdminQuietHours(data) {
 
     const quiet = data.quietHours || {};
     const members = Array.isArray(quiet.members) ? quiet.members : [];
+
+    // Das automatische Live-Update (alle 10s, siehe autoRefreshTimer) hat dieses Formular
+    // bisher bei jedem Durchlauf komplett neu aufgebaut - eine gerade getroffene Auswahl,
+    // eine gesetzte Checkbox oder eingetragene Uhrzeiten gingen dabei stillschweigend
+    // verloren ("nicht gespeicherter Fortschritt"). Aktuellen Formularstand vor dem
+    // Neuaufbau merken und danach unverändert wiederherstellen, analog zu renderAudit().
+    const previousUserId = document.getElementById("adminQuietHoursUserSelect")?.value || "";
+    const previousEnabled = document.getElementById("adminQuietHoursEnabled")?.checked || false;
+    const previousStart = document.getElementById("adminQuietHoursStart")?.value || "";
+    const previousEnd = document.getElementById("adminQuietHoursEnd")?.value || "";
 
     target.innerHTML = `
         <div class="admin-metric-grid compact">
@@ -590,6 +611,16 @@ function renderAdminQuietHours(data) {
             `).join("") : `<div class="admin-empty">Keine Nutzer vorhanden.</div>`}
         </div>
     `;
+
+    if (previousUserId) {
+        const nextSelect = document.getElementById("adminQuietHoursUserSelect");
+        if (nextSelect) nextSelect.value = previousUserId;
+
+        document.getElementById("adminQuietHoursEnabled").checked = previousEnabled;
+        if (previousStart) document.getElementById("adminQuietHoursStart").value = previousStart;
+        if (previousEnd) document.getElementById("adminQuietHoursEnd").value = previousEnd;
+        updateAdminQuietHoursError();
+    }
 }
 
 function fillAdminQuietHoursForm(userId) {

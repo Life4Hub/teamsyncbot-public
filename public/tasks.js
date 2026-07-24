@@ -95,13 +95,20 @@ function renderAssigneePicker(selectedIds = []) {
         `).join("")
         : `<span class="assignee-picker-placeholder">Noch niemand ausgewählt</span>`;
 
-    const choicesHtml = currentUsers.length
-        ? currentUsers.map(user => {
+    // Nur aktuelle Teammitglieder (isTeamMember, siehe GET /api/users) sind als NEUE
+    // Verantwortliche auswählbar - sonst blieb jeder, der sich je eingeloggt hat, für immer
+    // auswählbar, auch nach dem Ausscheiden aus dem Team. Bereits zugewiesene Personen
+    // bleiben aber sichtbar (isSelected), damit eine bestehende Zuweisung an jemanden, der
+    // inzwischen ausgeschieden ist, weder verschwindet noch beim Speichern verloren geht.
+    const selectableUsers = currentUsers.filter(user => user.isTeamMember !== false || selected.has(String(user.id)));
+
+    const choicesHtml = selectableUsers.length
+        ? selectableUsers.map(user => {
             const isSelected = selected.has(String(user.id));
 
             return `
                 <button type="button" class="assignee-choice ${isSelected ? "selected" : ""}" data-user-id="${escapeHtml(user.id)}">
-                    <span class="assignee-choice-name">${escapeHtml(displayUser(user))}</span>
+                    <span class="assignee-choice-name">${escapeHtml(displayUser(user))}${user.isTeamMember === false ? " (nicht mehr im Team)" : ""}</span>
                     <span class="assignee-choice-state">${isSelected ? "✓ ausgewählt" : "auswählen"}</span>
                 </button>
             `;
@@ -152,8 +159,22 @@ function updateAssigneePicker(picker) {
         if (state) state.textContent = "✓ ausgewählt";
     });
 
-    picker.querySelectorAll(".assignee-choice:not(.selected) .assignee-choice-state")
-        .forEach(state => state.textContent = "auswählen");
+    picker.querySelectorAll(".assignee-choice:not(.selected)").forEach(choiceEl => {
+        const state = choiceEl.querySelector(".assignee-choice-state");
+        if (state) state.textContent = "auswählen";
+
+        // Ehemalige Teammitglieder werden nur so lange angezeigt, wie sie einer Aufgabe
+        // noch zugewiesen sind (damit eine bestehende Zuweisung sichtbar bleibt). Sobald
+        // so jemand abgewählt wird, muss der Button verschwinden - sonst bliebe er in
+        // dieser Picker-Instanz beliebig oft erneut auswählbar, obwohl er kein aktuelles
+        // Teammitglied mehr ist.
+        const userId = String(choiceEl.dataset.userId || "");
+        const user = currentUsers.find(candidate => String(candidate.id) === userId);
+
+        if (user && user.isTeamMember === false) {
+            choiceEl.remove();
+        }
+    });
 }
 
 function getSelectedAssigneeIds(wrapper) {

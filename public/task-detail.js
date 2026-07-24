@@ -9,6 +9,15 @@ let departments = ["Allgemein"];
 let realtimeSocket = null;
 let realtimeReloadPending = false;
 
+// Ein Live-Update (siehe scheduleRealtimeReload/setupRealtimeChat) hat bisher bei JEDEM
+// task:updated-Socket-Event (z.B. wenn irgendwer einen Kommentar schreibt) alle
+// Bearbeitungsfelder ungefragt mit dem zuletzt gespeicherten Serverstand überschrieben -
+// auch mitten in einer eigenen, noch nicht gespeicherten Bearbeitung. Diese Liste merkt
+// sich, welche Felder der Nutzer seit dem letzten Laden/Speichern angefasst hat; genau
+// diese Felder lässt ein Live-Update dann in Ruhe.
+const dirtyDetailFieldIds = new Set();
+const DETAIL_FORM_FIELD_IDS = ["detailTitleInput", "detailStatus", "detailPriority", "detailDepartment", "detailDescription", "detailDueDate"];
+
 const taskId = decodeURIComponent(window.location.pathname.split("/").filter(Boolean).pop() || "");
 
 function escapeHtml(value) {
@@ -263,18 +272,36 @@ async function loadDepartments() {
     departments = await apiRequest("../api/departments?t=" + Date.now());
 }
 
-async function loadTask() {
+async function loadTask(options = {}) {
+    const preserveDirtyFields = options.preserveDirtyFields === true;
+    const isDirty = fieldId => preserveDirtyFields && dirtyDetailFieldIds.has(fieldId);
+
     currentTask = await apiRequest("../api/tasks/" + encodeURIComponent(taskId) + "?t=" + Date.now());
 
     document.getElementById("detailTitle").textContent = currentTask.title || "Aufgabe";
-    document.getElementById("detailTitleInput").value = currentTask.title || "";
-    document.getElementById("detailStatus").value = currentTask.status || "Offen";
-    document.getElementById("detailPriority").value = currentTask.priority || "Mittel";
-    document.getElementById("detailDepartment").innerHTML = renderDepartmentOptions(currentTask.department || "Allgemein");
-    document.getElementById("detailDescription").value = currentTask.description || "";
+
+    if (!isDirty("detailTitleInput")) {
+        document.getElementById("detailTitleInput").value = currentTask.title || "";
+    }
+
+    if (!isDirty("detailStatus")) {
+        document.getElementById("detailStatus").value = currentTask.status || "Offen";
+    }
+
+    if (!isDirty("detailPriority")) {
+        document.getElementById("detailPriority").value = currentTask.priority || "Mittel";
+    }
+
+    if (!isDirty("detailDepartment")) {
+        document.getElementById("detailDepartment").innerHTML = renderDepartmentOptions(currentTask.department || "Allgemein");
+    }
+
+    if (!isDirty("detailDescription")) {
+        document.getElementById("detailDescription").value = currentTask.description || "";
+    }
 
     const dueInput = document.getElementById("detailDueDate");
-    if (dueInput) {
+    if (dueInput && !isDirty("detailDueDate")) {
         dueInput.value = formatDateTimeLocal(currentTask.dueDate);
     }
 
@@ -447,6 +474,8 @@ async function saveTaskDetails(options = {}) {
         })
     });
 
+    // Der gerade gespeicherte Stand ist jetzt der Serverstand - nichts mehr "dirty".
+    dirtyDetailFieldIds.clear();
     await loadTask();
 
     if (showAlert) {
@@ -553,7 +582,9 @@ async function sendComment() {
         textarea.value = "";
         if (fileInput) fileInput.value = "";
         updateSelectedFilesLabel();
-        await loadTask();
+        // preserveDirtyFields: Kommentar abschicken darf keine unabhängig davon laufende,
+        // noch nicht gespeicherte Bearbeitung der Aufgabenfelder verwerfen.
+        await loadTask({ preserveDirtyFields: true });
     } finally {
         setButtonLoading("sendCommentBtn", false);
     }
@@ -572,7 +603,7 @@ function scheduleRealtimeReload() {
 
     setTimeout(async () => {
         try {
-            await loadTask();
+            await loadTask({ preserveDirtyFields: true });
         } catch (error) {
             console.error("Live-Chat konnte nicht aktualisiert werden:", error);
         } finally {
@@ -603,11 +634,20 @@ function setupRealtimeChat() {
     });
 }
 
+function setupDirtyFieldTracking() {
+    DETAIL_FORM_FIELD_IDS.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        field?.addEventListener("input", () => dirtyDetailFieldIds.add(fieldId));
+        field?.addEventListener("change", () => dirtyDetailFieldIds.add(fieldId));
+    });
+}
+
 async function init() {
     await loadCurrentUser();
     await loadDepartments();
     await loadTask();
     updateSelectedFilesLabel();
+    setupDirtyFieldTracking();
     setupRealtimeChat();
 }
 
